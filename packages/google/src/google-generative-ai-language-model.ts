@@ -20,10 +20,14 @@ import {
   GoogleGenerativeAISettings,
 } from './google-generative-ai-settings';
 import { mapGoogleGenerativeAIFinishReason } from './map-google-generative-ai-finish-reason';
+import { GoogleAuth } from 'google-auth-library';
 
 type GoogleGenerativeAIConfig = {
   provider: string;
   baseURL: string;
+  useVertexAI?: boolean;
+  auth?: GoogleAuth;
+  projectId?: string;
   headers: () => Record<string, string | undefined>;
   generateId: () => string;
 };
@@ -45,6 +49,9 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV1 {
     this.modelId = modelId;
     this.settings = settings;
     this.config = config;
+    if (this.config.useVertexAI) {
+      this.config.auth = new GoogleAuth();
+    }
   }
 
   get provider(): string {
@@ -146,14 +153,52 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV1 {
     }
   }
 
+  // This method is used to check if the user is using Vertex AI and configure the settings accordingly, getting a token and the project ID.
+  async configureVertexAI() {
+    'Configuring Vertex AI';
+    if (this.config.auth == null) {
+      throw new Error(
+        'The Google Auth client is required when using Vertex AI',
+      );
+    }
+    const projectId = await this.config.auth.getProjectId();
+    if (projectId == null) {
+      throw new Error(
+        'The project ID is required when using Vertex AI. Make sure you are running your code in a Google Cloud environment. In case you are running it locally, set the projectId',
+      );
+    }
+    try {
+      const token = await this.config.auth.getAccessToken();
+      const baseURL = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google`;
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        ...this.config.headers(),
+      };
+      return { baseURL, headers };
+    } catch (error) {
+      throw new Error(
+        'The token is required when using Vertex AI. Make sure you are running your code in a Google Cloud environment. In case you are running it locally, set the Application Default Credentials',
+      );
+    }
+  }
+
   async doGenerate(
     options: Parameters<LanguageModelV1['doGenerate']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV1['doGenerate']>>> {
     const { args, warnings } = this.getArgs(options);
 
+    let baseURL = this.config.baseURL;
+    let headers = this.config.headers();
+
+    if (this.config.useVertexAI) {
+      const vertexAIConfig = await this.configureVertexAI();
+      baseURL = vertexAIConfig.baseURL;
+      headers = vertexAIConfig.headers;
+    }
+
     const { responseHeaders, value: response } = await postJsonToApi({
-      url: `${this.config.baseURL}/${this.modelId}:generateContent`,
-      headers: this.config.headers(),
+      url: `${baseURL}/${this.modelId}:generateContent`,
+      headers: headers,
       body: args,
       failedResponseHandler: googleFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(responseSchema),
@@ -190,9 +235,18 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV1 {
   ): Promise<Awaited<ReturnType<LanguageModelV1['doStream']>>> {
     const { args, warnings } = this.getArgs(options);
 
+    let baseURL = this.config.baseURL;
+    let headers = this.config.headers();
+
+    if (this.config.useVertexAI) {
+      const vertexAIConfig = await this.configureVertexAI();
+      baseURL = vertexAIConfig.baseURL;
+      headers = vertexAIConfig.headers;
+    }
+
     const { responseHeaders, value: response } = await postJsonToApi({
-      url: `${this.config.baseURL}/${this.modelId}:streamGenerateContent?alt=sse`,
-      headers: this.config.headers(),
+      url: `${baseURL}/${this.modelId}:streamGenerateContent?alt=sse`,
+      headers: headers,
       body: args,
       failedResponseHandler: googleFailedResponseHandler,
       successfulResponseHandler: createEventSourceResponseHandler(chunkSchema),

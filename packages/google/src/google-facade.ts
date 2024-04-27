@@ -23,6 +23,8 @@ export class Google {
 
   readonly headers?: Record<string, string>;
 
+  readonly useVertexAI?: boolean;
+
   private readonly generateId: () => string;
 
   /**
@@ -34,10 +36,21 @@ export class Google {
       'https://generativelanguage.googleapis.com/v1beta';
     this.apiKey = options.apiKey;
     this.headers = options.headers;
+    this.useVertexAI = options.useVertexAI;
     this.generateId = options.generateId ?? generateId;
   }
 
   private get baseConfig() {
+    if (this.useVertexAI) {
+      return {
+        baseURL: this.baseURL,
+        headers: () => ({
+          ...this.headers,
+        }),
+        useVertexAI: this.useVertexAI,
+      };
+    }
+
     return {
       baseURL: this.baseURL,
       headers: () => ({

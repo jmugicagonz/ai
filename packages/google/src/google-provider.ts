@@ -4,6 +4,7 @@ import {
   GoogleGenerativeAIModelId,
   GoogleGenerativeAISettings,
 } from './google-generative-ai-settings';
+import { GoogleAuth } from 'google-auth-library';
 
 export interface GoogleGenerativeAIProvider {
   (
@@ -42,6 +43,16 @@ API key that is being send using the `x-goog-api-key` header.
 It defaults to the `GOOGLE_GENERATIVE_AI_API_KEY` environment variable.
    */
   apiKey?: string;
+
+  /**
+   * Boolean to indicate if it should use VertexAI instead of the default API.
+   */
+  useVertexAI?: boolean;
+
+  /**
+   * The Google Auth client to use for authentication. This will be used if useVertexAI is true.
+   */
+  auth?: GoogleAuth;
 
   /**
 Custom headers to include in the requests.

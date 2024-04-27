@@ -17,6 +17,7 @@
     "type-check": "tsc --noEmit",
     "prettier-check": "prettier --check \"./**/*.ts*\"",
     "test": "pnpm test:node && pnpm test:edge",
+    "testAuth": "pnpm test:node",
     "test:edge": "vitest --config vitest.edge.config.js --run --threads=false",
     "test:node": "vitest --config vitest.node.config.js --run --threads=false"
   },
@@ -30,7 +31,8 @@
   },
   "dependencies": {
     "@ai-sdk/provider": "0.0.2",
-    "@ai-sdk/provider-utils": "0.0.3"
+    "@ai-sdk/provider-utils": "0.0.3",
+    "google-auth-library": "^9.9.0"
   },
   "devDependencies": {
     "@types/node": "^18",
